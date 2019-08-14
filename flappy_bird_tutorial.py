@@ -28,7 +28,6 @@ BG_IMG = pygame.transform.scale2x(pygame.image.load(
     os.path.join("imgs", "bg.png")))
 
 
-# Bird Class
 class Bird:
     IMGS = BIRD_IMGS
     MAX_ROTATION = 25
@@ -118,7 +117,6 @@ class Bird:
         return pygame.mask.from_surface(self.img)
 
 
-# Pipe Class
 class Pipe:
     # Gap between pipes
     GAP = 200
@@ -197,8 +195,12 @@ class Base:
         if self.x1 + self.WIDTH < 0:
             self.x1 = self.x2 + self.WIDTH
 
-        if self.x1 + self.WIDTH < 0:
-            self.x1 = self.x2 + self.WIDTH
+        if self.x2 + self.WIDTH < 0:
+            self.x2 = self.x1 + self.WIDTH
+
+    def draw(self, win):
+        win.blit(self.IMG, (self.x1, self.y))
+        win.blit(self.IMG, (self.x2, self.y))
 
 
 def draw_window(win, bird):
