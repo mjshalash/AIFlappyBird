@@ -3,6 +3,7 @@ import neat
 import time
 import os
 import random
+pygame.font.init()
 
 # Constants for Window Size
 WIN_WIDTH = 500
@@ -26,6 +27,8 @@ BASE_IMG = pygame.transform.scale2x(pygame.image.load(
 
 BG_IMG = pygame.transform.scale2x(pygame.image.load(
     os.path.join("imgs", "bg.png")))
+
+STAT_FONT = pygame.font.SysFont("comicsans", 50)
 
 
 class Bird:
@@ -82,7 +85,7 @@ class Bird:
             if self.tilt > -90:
                 self.tilt -= self.ROT_VEL
 
-    # Draw bird
+    # Draw bird (simulates flapping)
     def draw(self, win):
         # How many times has the game loop run
         self.img_count += 1
@@ -155,7 +158,7 @@ class Pipe:
     # Check collision with bird using masks (not just straight box colliders)
     def collide(self, bird, win):
         # Get pixels for bird
-        bird_mask = bird.get_mask
+        bird_mask = bird.get_mask()
 
         # Create masks for top and bottom pipes
         top_mask = pygame.mask.from_surface(self.PIPE_TOP)
@@ -203,9 +206,20 @@ class Base:
         win.blit(self.IMG, (self.x2, self.y))
 
 
-def draw_window(win, bird):
+def draw_window(win, bird, pipes, base, score):
     # Draw background/environment
     win.blit(BG_IMG, (0, 0))
+
+    # Draw pipes
+    for pipe in pipes:
+        pipe.draw(win)
+
+    # Display score text
+    text = STAT_FONT.render("Score: " + str(score), 1, (255, 255, 255))
+    win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
+
+    # Draw Ground
+    base.draw(win)
 
     # Start bird's movement/flapping
     bird.draw(win)
@@ -213,14 +227,22 @@ def draw_window(win, bird):
 
 
 def main():
-    # Create bird object
-    bird = Bird(200, 200)
+    # Create bird object at a certain position
+    bird = Bird(230, 350)
+
+    # Create Base with height
+    base = Base(730)
+
+    # Create list of multiple pipes
+    pipes = [Pipe(600)]
 
     # Create pygame window
     win = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
 
     # Establish clock so we can control how quick the loop loops
     clock = pygame.time.Clock()
+
+    score = 0
 
     # Boolean to control game running or not
     run = True
@@ -235,10 +257,43 @@ def main():
                 run = False
 
         # Move bird forward
-        bird.move()
+        # bird.move()
 
-        # Draw the game window
-        draw_window(win, bird)
+        add_pipe = False
+        rem = []
+        # Move pipes backward
+        for pipe in pipes:
+            # Check for bird collision
+            if pipe.collide(bird, win):
+                pass
+
+            # If pipe completely off screen
+            if pipe.x + pipe.PIPE_TOP.get_width() < 0:
+                rem.append(pipe)
+
+            # If pipe has been passed, generate new pipe
+            if not pipe.passed and pipe.x < bird.x:
+                pipe.passed = True
+                add_pipe = True
+
+            pipe.move()
+
+        # Add to score and add new pipes
+        if add_pipe:
+            score += 1
+            pipes.append(Pipe(700))
+
+        # Remove any old pipes
+        for r in rem:
+            pipes.remove(r)
+
+        # Bird hits ground = game over
+        if bird.y + bird.img.get_height() >= 730:
+            pass
+
+            # Draw the game window
+        base.move()
+        draw_window(win, bird, pipes, base, score)
 
     # If loop exits then quit game
     pygame.quit()
