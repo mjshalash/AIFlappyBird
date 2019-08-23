@@ -9,6 +9,8 @@ pygame.font.init()
 WIN_WIDTH = 500
 WIN_HEIGHT = 800
 
+GEN = 0
+
 # Load Images
 # Load bird images and make 2x bigger
 BIRD_IMGS = [
@@ -206,7 +208,7 @@ class Base:
         win.blit(self.IMG, (self.x2, self.y))
 
 
-def draw_window(win, bird, pipes, base, score):
+def draw_window(win, birds, pipes, base, score, gen):
     # Draw background/environment
     win.blit(BG_IMG, (0, 0))
 
@@ -218,17 +220,38 @@ def draw_window(win, bird, pipes, base, score):
     text = STAT_FONT.render("Score: " + str(score), 1, (255, 255, 255))
     win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
 
+    # Display score text
+    text = STAT_FONT.render("Gen: " + str(gen), 1, (255, 255, 255))
+    win.blit(text, (10, 10))
+
     # Draw Ground
     base.draw(win)
 
-    # Start bird's movement/flapping
-    bird.draw(win)
+    # Draw all birds
+    for bird in birds:
+        bird.draw(win)
+
     pygame.display.update()
 
 
-def main():
-    # Create bird object at a certain position
-    bird = Bird(230, 350)
+def main(genomes, config):
+    global GEN
+    GEN += 1
+
+    # Keep track of each bird's neural network, the genome and the bird itself
+    nets = []
+    ge = []
+
+    # Create bird object array at a certain position
+    birds = []
+
+    # Create bird and neural network for each passed in genome
+    for _, g in genomes:
+        net = neat.nn.FeedForwardNetwork.create(g, config)
+        nets.append(net)
+        birds.append(Bird(230, 350))
+        g.fitness = 0
+        ge.append(g)
 
     # Create Base with height
     base = Base(730)
@@ -255,49 +278,106 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
+                # If loop exits then quit game
+                pygame.quit()
+                quit()
 
-        # Move bird forward
-        # bird.move()
+        # Check if pipes on screen is greater than 1, if so then use
+        # x-position of the bird group.  If they are past pipe 0 then
+        # we need to be calculating distance to second pipe on screen
+        pipe_ind = 0
+        if len(birds) > 0:
+            if len(pipes) > 1 and birds[0].x > pipes[0].x + pipes[0].PIPE_TOP.get_width():
+                pipe_ind = 1
+        else:
+            run = False
+            break
+
+        # Move bird based on neural network
+        for x, bird in enumerate(birds):
+            bird.move()
+            # Give fitness as this bird has moved forward
+            # (Every second it gets one point)
+            ge[x].fitness += 0.1
+
+            # Activate neural network
+            output = nets[x].activate(
+                (bird.y, abs(bird.y - pipes[pipe_ind].height), abs(bird.y - pipes[pipe_ind].bottom)))
+
+            # If it is greater than 0.5 than make the bird jump
+            if output[0] > 0.5:
+                bird.jump()
 
         add_pipe = False
         rem = []
         # Move pipes backward
         for pipe in pipes:
-            # Check for bird collision
-            if pipe.collide(bird, win):
-                pass
+            for x, bird in enumerate(birds):
+                # Check for bird collision and remove (no longer add to fitness)
+                if pipe.collide(bird, win):
+                    # Remove 1 from fitness if a bird hits a pipe
+                    ge[x].fitness -= 1
+
+                    # Remove bird
+                    birds.pop(x)
+                    nets.pop(x)
+                    ge.pop(x)
+
+                # If pipe has been passed, generate new pipe
+                if not pipe.passed and pipe.x < bird.x:
+                    pipe.passed = True
+                    add_pipe = True
 
             # If pipe completely off screen
             if pipe.x + pipe.PIPE_TOP.get_width() < 0:
                 rem.append(pipe)
-
-            # If pipe has been passed, generate new pipe
-            if not pipe.passed and pipe.x < bird.x:
-                pipe.passed = True
-                add_pipe = True
 
             pipe.move()
 
         # Add to score and add new pipes
         if add_pipe:
             score += 1
+            # Add to fitness for all birds which passed prev. pipe
+            for g in ge:
+                g.fitness += 5
             pipes.append(Pipe(700))
 
         # Remove any old pipes
         for r in rem:
             pipes.remove(r)
 
-        # Bird hits ground = game over
-        if bird.y + bird.img.get_height() >= 730:
-            pass
+        for x, bird in enumerate(birds):
 
-            # Draw the game window
+            # Bird hits ground = game over
+            # Bird flies to high = game over
+            if bird.y + bird.img.get_height() >= 730 or bird.y < 0:
+                birds.pop(x)
+                nets.pop(x)
+                ge.pop(x)
+
+        # Draw the game window
         base.move()
-        draw_window(win, bird, pipes, base, score)
-
-    # If loop exits then quit game
-    pygame.quit()
-    quit()
+        draw_window(win, birds, pipes, base, score, GEN)
 
 
-main()
+def run(config_path):
+    # Define subheadings used in config file (must match)
+    config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                                neat.DefaultSpeciesSet, neat.DefaultStagnation, config_path)
+
+    # Generate population based on config file
+    p = neat.Population(config)
+
+    # Gives output in console for each generation
+    p.add_reporter(neat.StdOutReporter(True))
+    stats = neat.StatisticsReporter()
+    p.add_reporter(stats)
+
+    # Call main function 50 times using defined genomes ("Play the game 50 times")
+    winner = p.run(main, 50)
+
+
+if __name__ == "__main__":
+    local_dir = os.path.dirname(__file__)
+    config_path = os.path.join(local_dir, "config-feedforward.txt")
+    run(config_path)
