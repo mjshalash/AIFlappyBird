@@ -125,8 +125,9 @@ class Bird:
 
 
 class Pipe:
-    # Gap between pipes
+    # Vertical Gap between pipes
     GAP = 200
+
     # Pipes moving backwards (remember the bird isnt moving, everything else is)
     VEL = 5
 
@@ -312,6 +313,7 @@ def main(genomes, config):
 
         add_pipe = False
         rem = []
+
         # Move pipes backward
         for pipe in pipes:
             for x, bird in enumerate(birds):
@@ -326,6 +328,9 @@ def main(genomes, config):
                     ge.pop(x)
 
                 # If pipe has been passed, generate new pipe
+                # IDEA: Could instead check for exact distance of bird to the upcoming pipe and then add new pipe based on this
+                # This would make it harder on the bird
+                # (Would have to be careful to generate only one pipe not a bunch)
                 if not pipe.passed and pipe.x < bird.x:
                     pipe.passed = True
                     add_pipe = True
