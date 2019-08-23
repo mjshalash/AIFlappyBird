@@ -3,6 +3,8 @@ import neat
 import time
 import os
 import random
+import visualize
+
 pygame.font.init()
 
 # Constants for Window Size
@@ -342,6 +344,10 @@ def main(genomes, config):
                 g.fitness += 5
             pipes.append(Pipe(700))
 
+        # If a bird reaches a score of 50 then just quit game
+        if score > 50:
+            break
+
         # Remove any old pipes
         for r in rem:
             pipes.remove(r)
@@ -375,6 +381,10 @@ def run(config_path):
 
     # Call main function 50 times using defined genomes ("Play the game 50 times")
     winner = p.run(main, 50)
+
+    # visualize.draw_net(config, winner, True, node_names=node_names)
+    visualize.plot_stats(stats, ylog=False, view=True)
+    visualize.plot_species(stats, view=True)
 
 
 if __name__ == "__main__":
